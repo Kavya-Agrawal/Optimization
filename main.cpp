@@ -7,8 +7,164 @@ typedef pair<POINT, POINT> EDGE;
 #define epb edgeList.push_back
 #define vpb vertices.push_back
 
+// Declarations
+
 const int MAX_SIZE = 1e4+1;
 vector<vector<int>> grid(MAX_SIZE, vector<int>(MAX_SIZE, 0));
+vector<vector<int>> psum(MAX_SIZE, vector<int>(MAX_SIZE, 0));
+vector<int> starts1, ends1, starts2, ends2, maxes1, maxes2;
+vector<vector<int>> dp0;
+vector<vector<int>> dp1;
+vector<vector<int>> dp2;
+
+struct edgesStruct
+{
+    vector<EDGE> edgeList;
+    vector<EDGE> upEdges;
+    vector<EDGE> downEdges;
+    vector<POINT> vertices;
+};
+
+void getGrid(const string& filename);
+void getGridTranspose(const string& filename);
+int allPositivesSum();
+void makepsum();
+void kadane(const vector<int>& arr, int& start, int& end, int& max_sum);
+pair<int,int> getOptimalValue(int rows);
+vector<int> getSubarrays(int rows, int used);
+vector<int> getSubarrays(int rows, int used) ;
+edgesStruct getEdges(vector<int> selected, int len);
+void extend_edges(edgesStruct & es );
+
+// End Declarations
+
+signed main(){
+    // ios::sync_with_stdio(0); cin.tie(0);
+    
+    int testcases;
+    cout << "Enter the number of testcases : ";
+    cin >> testcases;
+    
+    for(int tc = 1; tc <= testcases; tc++){
+        cout<<endl<<"Case: "<<tc<<endl;
+        string filename = "input" + string(tc < 10 ? "0" : "" ) + (to_string(tc)) + ".txt";
+        getGrid(filename);
+        makepsum();
+
+        int totPos = allPositivesSum();
+        int bestWidth = -1;
+        int ans = 0;
+        int used;
+        vector<int> widths = {1, 40, 50};
+        cout<< "Normal grid: " <<endl;
+        for(int width : widths){
+            starts1.clear();
+            ends1.clear();
+            starts2.clear();
+            ends2.clear();
+            maxes1.clear();
+            maxes2.clear();
+            dp0.clear();
+            dp1.clear();
+            dp2.clear();
+            pair<int, int> temp = getOptimalValue(width);
+            cout << width << " : " << (temp.first * 100.00)/totPos << "\n";
+            if(temp.first > ans){
+                ans = temp.first;
+                used = temp.second;
+                bestWidth = width;
+            }
+        }
+        bool transpose = false;
+        getGridTranspose(filename);
+
+        cout<<endl<< "Transpose grid: "<<endl;
+        for(int width : widths){
+            starts1.clear();
+            ends1.clear();
+            starts2.clear();
+            ends2.clear();
+            maxes1.clear();
+            maxes2.clear();
+            dp0.clear();
+            dp1.clear();
+            dp2.clear();
+            pair<int, int> temp = getOptimalValue(width);
+            cout << width << " : " << (temp.first * 100.00)/totPos << "\n";
+            if(temp.first > ans){
+                ans = temp.first;
+                used = temp.second;
+                bestWidth = width;
+                transpose = true;
+            }
+        }
+
+        if(!transpose) getGrid(filename);
+
+        starts1.clear();
+        ends1.clear();
+        starts2.clear();
+        ends2.clear();
+        maxes1.clear();
+        maxes2.clear();
+        dp0.clear();
+        dp1.clear();
+        dp2.clear();
+        pair<int, int> temp = getOptimalValue(bestWidth);
+        ans = temp.first;
+        used = temp.second;
+
+        vector<int> selected = getSubarrays(bestWidth,used);
+
+        int veri=0;
+        for(int i = 0; i < selected.size(); ++i){
+            if(selected[i] == 1) veri += maxes1[i];
+            else if(selected[i] == 2){
+                veri += maxes1[i];
+                veri += maxes2[i];
+            }
+        };
+
+
+        cout << endl<< "Bestwidth: " << bestWidth<< ", Transpose = "<<transpose << "\n";
+        cout << ans << endl;
+        cout << veri << endl;
+
+        cout<<  (ans * 100.0) / totPos<<endl;
+        cout<<  (veri * 100.0) / totPos<<endl;
+        
+        cout << totPos << endl;
+        
+        edgesStruct edge_str = getEdges(selected, bestWidth);
+        extend_edges(edge_str);
+
+        int numEdges = edge_str.edgeList.size();
+        
+        cout << "Edges used : " << numEdges << "\n";
+        
+        ofstream edgeOut("57_optimization_output0" + (to_string(tc)) + ".txt");
+        edgeOut << ans << "\n";
+        edgeOut << numEdges << ", " << numEdges << "\n";
+        for (int i = 0; i < numEdges; i++)
+        {
+            if(edge_str.edgeList[i].first.first > 0){
+                edge_str.edgeList[i].first.first++;
+            }
+            if(edge_str.edgeList[i].second.first > 0){
+                edge_str.edgeList[i].second.first++;
+            }
+            if(transpose){
+                swap(edge_str.edgeList[i].first.first , edge_str.edgeList[i].first.second);
+                swap(edge_str.edgeList[i].second.first , edge_str.edgeList[i].second.second);
+            }
+            edgeOut << "(" << edge_str.edgeList[i].first.first<<", "<<edge_str.edgeList[i].first.second<<"), ("<<
+            edge_str.edgeList[i].second.first<<", "<<edge_str.edgeList[i].second.second<<")\n";
+
+        }
+    }
+
+    return 0;
+}
 
 void getGrid(const string& filename) {
     ifstream file(filename);
@@ -78,6 +234,25 @@ int allPositivesSum() {
     return ans;
 }
 
+void makepsum() {
+    for (int i = 0; i < MAX_SIZE; i++) {
+        for (int j = 0; j < MAX_SIZE; j++) {
+            psum[i][j] = grid[i][j];
+
+            if (i > 0)
+                psum[i][j] += psum[i - 1][j];
+            if (j > 0)
+                psum[i][j] += psum[i][j - 1];
+            if (i > 0 && j > 0)
+                psum[i][j] -= psum[i - 1][j - 1];
+        }
+    }
+}
+
+int getSum(int x1, int y1, int x2, int y2 ){
+    return psum[x2][y2] - psum[x1-1][y2] - psum[x2][y1-1] + psum[x1-1][y1-1];
+}
+
 void kadane(const vector<int>& arr, int& start, int& end, int& max_sum) {
     int current_max = 0;
     max_sum = 0;
@@ -109,12 +284,6 @@ void kadane(const vector<int>& arr, int& start, int& end, int& max_sum) {
         end = 0;
     }
 }
-
-
-vector<int> starts1, ends1, starts2, ends2, maxes1, maxes2;
-vector<vector<int>> dp0;
-vector<vector<int>> dp1;
-vector<vector<int>> dp2;
 
 pair<int,int> getOptimalValue(int rows) {
     int divisions = MAX_SIZE / rows;
@@ -378,10 +547,15 @@ vector<int> getSubarrays(int rows, int used) {
 
 }
 
+bool point_cmp(POINT a, POINT b){
+    return (a.first == b.first && a.second == b.second);
+}
 
-vector<EDGE> getEdges(vector<int> selected, int len){
+edgesStruct getEdges(vector<int> selected, int len){
     
     vector<EDGE> edgeList;
+    vector<POINT> vertices;
+    vector<EDGE> upEdges, downEdges;
 
     int n = starts1.size();
 
@@ -398,7 +572,8 @@ vector<EDGE> getEdges(vector<int> selected, int len){
         POINT A,B;
         A = {x-0.6,starts1[initial]-0.6};
         B = {x-0.6,ends1[initial]+0.6};
-        
+        vpb(A);
+        vpb(B);
         epb({A,B});
         preStart = A;
         preEnd = B;
@@ -408,7 +583,8 @@ vector<EDGE> getEdges(vector<int> selected, int len){
 
         POINT A = {x+len-1+0.2,starts2[initial]-0.6}; // right side start of small block
         POINT B = {x+len-1+0.2,ends2[initial]+0.6}; // right side end of small block
-        
+        vpb(A);
+        vpb(B);
         epb({A, B});
 
         // extreme are extended by 0.6 and others by 0.4
@@ -417,9 +593,15 @@ vector<EDGE> getEdges(vector<int> selected, int len){
             C = {x-0.6,starts1[initial]-0.6};
             D = {x-0.6,ends2[initial]+0.6};
             E = {x-0.4,starts2[initial]-0.6};
-            F = {x-0.4,ends1[initial]+0.6};
-
-            epb({C, D}); epb({E, F}); epb({B, D}); epb({A, E});
+            F = {x-0.4,ends1[initial]+0.6};            
+            vpb(C); 
+            vpb(D); 
+            vpb(E); 
+            vpb(F);
+            epb({C, D}); 
+            epb({E, F}); 
+            epb({B, D}); 
+            epb({A, E});
             preStart = C;
             preEnd = F;
         }
@@ -427,9 +609,15 @@ vector<EDGE> getEdges(vector<int> selected, int len){
             C = {x-0.6,starts2[initial]-0.6};
             D = {x-0.6,ends1[initial]+0.6};
             E = {x-0.4,starts1[initial]-0.6};
-            F = {x-0.4,ends2[initial]+0.6};
-            
-            epb({C, D}); epb({E, F}); epb({F, B}); epb({C, A});
+            F = {x-0.4,ends2[initial]+0.6};            
+            vpb(C); 
+            vpb(D); 
+            vpb(E); 
+            vpb(F);
+            epb({C, D}); 
+            epb({E, F}); 
+            epb({F, B}); 
+            epb({C, A});
             preStart = E;
             preEnd = D;
         }
@@ -455,6 +643,8 @@ vector<EDGE> getEdges(vector<int> selected, int len){
             POINT X = {prevx+len-1+0.6,starts1[previndex]-0.6};
             POINT Y = {prevx+len-1+0.6,ends1[previndex]+0.4}; //0.2 for pipeline
             
+            vpb(X);
+            vpb(Y); 
             // previous box remaining 2 edges
             epb({X,Y});
             epb({X, preStart});
@@ -465,7 +655,8 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                 // right side of small block
                 POINT A = {x+len-1+0.2,starts2[i]-0.6};
                 POINT B = {x+len-1+0.2,ends2[i]+0.6};
-                
+                vpb(A);
+                vpb(B);
                 epb({A,B});
 
                 POINT C,D,E,F,G,H;
@@ -477,17 +668,30 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                     G = {x-0.4, min(ends1[i], ends2[i]) + 0.6};
                     F = {x-0.4,max(starts1[i], starts2[i])-0.6};
                     H = {x-0.6,min(starts1[i], starts2[i])-0.6};
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F); 
+                    vpb(G); 
+                    vpb(H);
+                    epb({F,G}); 
+                    epb({C,E}); 
+                    epb({D,H}); 
+                    epb({D,Y}); 
+                    epb({C,preEnd});
 
-                    epb({F,G}); epb({C,E}); epb({D,H}); epb({D,Y}); epb({C,preEnd});
-
+                    upEdges.push_back({preEnd,C});
+                    downEdges.push_back({Y,D});
 
                     if(ends2[i]>ends1[i]){
-                        epb({E,B}); epb({F,A});
+                        epb({E,B}); 
+                        epb({F,A});
                         preEnd = G;
                         preStart = H;
                     }
                     else{
-                        epb({G,B}); epb({H,A});
+                        epb({G,B}); 
+                        epb({H,A});
                         preEnd = E;
                         preStart = F;
                     }
@@ -501,16 +705,30 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                     G = {x-0.4,max(starts1[i], starts2[i]) -0.6};
                     H = {x-0.6,max(ends1[i], ends2[i])+0.6};
                     
-                    epb({D, preEnd});  epb({Y,C}); epb({E,C}); epb({D,H}); epb({G,F});
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F); 
+                    vpb(G); 
+                    vpb(H);
+                    epb({D, preEnd});  
+                    epb({Y,C}); 
+                    epb({E,C}); 
+                    epb({D,H}); 
+                    epb({G,F});
 
+                    upEdges.push_back({preEnd,D});
+                    downEdges.push_back({Y,C});
 
                     if(ends2[i]>ends1[i]){
-                        epb({B,H}); epb({A,G});
+                        epb({B,H}); 
+                        epb({A,G});
                         preEnd = F;
                         preStart = E;
                     }
                     else{
-                        epb({F,B}); epb({E,A});
+                        epb({F,B}); 
+                        epb({E,A});
                         preEnd = H;
                         preStart = G;
                     }
@@ -523,9 +741,20 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                     D = {x-0.4,max(starts1[i],starts2[i])-0.6};
                     H = {x-0.6,ends1[previndex]+0.6};
                     G = {x-0.6,ends1[previndex]+0.4};
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F); 
+                    vpb(G); 
+                    vpb(H);
+                    epb({preEnd,H}); 
+                    epb({Y,G}); 
+                    epb({H,C}); 
+                    epb({F,G}); 
+                    epb({D,E}); 
 
-                    epb({preEnd,H}); epb({Y,G}); epb({H,C}); epb({F,G}); epb({D,E}); 
-
+                    upEdges.push_back({preEnd,H});
+                    downEdges.push_back({Y,G});
 
                     if(ends2[i]>ends1[i]){
                         epb({C,B}); epb({D,A});
@@ -550,10 +779,19 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                     E = {x-0.4,ends1[i]+0.6};
                     F = {x-0.6,starts1[i]-0.6};
 
-                    epb({preEnd,D}); epb({Y,C}); epb({D,E}); epb({C,F});
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F);
+                    epb({preEnd,D}); 
+                    epb({Y,C}); 
+                    epb({D,E}); 
+                    epb({C,F});
                     preEnd = E;
                     preStart = F;
 
+                    upEdges.push_back({preEnd,D});
+                    downEdges.push_back({Y,C});
                 }
                 else if(ends1[previndex] < starts1[i]){
                     C = {x-0.4,ends1[previndex]+0.4};
@@ -561,21 +799,39 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                     E = {x-0.4,starts1[i]-0.6};
                     F = {x-0.6,ends1[i]+0.6};
 
-                    epb({preEnd,D}); epb({Y,C}); epb({C,E}); epb({D,F});
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F);
+                    epb({preEnd,D}); 
+                    epb({Y,C}); 
+                    epb({C,E}); 
+                    epb({D,F});
                     preEnd = F;
                     preStart = E;
 
+                    upEdges.push_back({preEnd,D});
+                    downEdges.push_back({Y,C});
                 }
                 else{
                     C = {x-0.6,ends1[i]+0.6};
                     D = {x-0.6,ends1[previndex]+0.6};
                     E = {x-0.6,ends1[previndex]+0.4};
                     F = {x-0.6,starts1[i]-0.6};
-
-                    epb({preEnd,D}); epb({Y,E}); epb({D,C}); epb({E,F});
+                    
+                    vpb(C); 
+                    vpb(D); 
+                    vpb(E); 
+                    vpb(F);
+                    epb({preEnd,D}); 
+                    epb({Y,E}); 
+                    epb({D,C}); 
+                    epb({E,F});
                     preEnd = C;
                     preStart = F;
 
+                    upEdges.push_back({preEnd,D});
+                    downEdges.push_back({Y,E});
                 }
             }
 
@@ -599,8 +855,9 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                         C = {x-0.4, ends1[i]+0.6};
                         D = {x-0.4, ends1[previndex]+0.6};
                     }
-
-                    epb({C,D}); epb({preEnd,D});
+                    vpb(C); vpb(D);
+                    epb({C,D}); 
+                    epb({preEnd,D});
                     preEnd = C;
 
                 }
@@ -613,8 +870,9 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                         C = {x-0.6, starts1[i]-0.6};
                         D = {x-0.6, starts1[previndex]-0.6};
                     }
-                    
-                    epb({C,D}); epb({D, preStart});
+                    vpb(C); vpb(D);
+                    epb({C,D}); 
+                    epb({D, preStart});
                     preStart = C;
                 }
                 else{
@@ -631,8 +889,11 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                             F = {x-0.6, starts1[previndex]-0.6};
                         }
 
-                        
-                        epb({C,D}); epb({E,F}); epb({preEnd,D}); epb({preStart,F});
+                        vpb(C); vpb(D); vpb(E); vpb(F);
+                        epb({C,D}); 
+                        epb({E,F}); 
+                        epb({preEnd,D}); 
+                        epb({preStart,F});
                         preStart = E;
                         preEnd = C;
                     }
@@ -649,7 +910,11 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                             F = {x-0.6, starts1[i]-0.6};
                         }
 
-                        epb({C,D}); epb({E,F}); epb({preEnd,C}); epb({preStart,E});
+                        vpb(C); vpb(D); vpb(E); vpb(F);
+                        epb({C,D}); 
+                        epb({E,F}); 
+                        epb({preEnd,C}); 
+                        epb({preStart,E});
                         preStart = F;
                         preEnd = D;
                     }
@@ -667,7 +932,12 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                 C = {x-0.4, max(starts1[i], starts2[i]) -0.6};
                 D = {x-0.4, min(ends1[i], ends2[i]) +0.6};
 
-                epb({A,B}); epb({C,D});
+                vpb(A); 
+                vpb(B); 
+                vpb(C); 
+                vpb(D);
+                epb({A,B}); 
+                epb({C,D});
 
                 double newStart = min(starts1[i], starts2[i]);
                 double newEnd = max(ends1[i], ends2[i]);
@@ -684,16 +954,24 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                         G = {x-0.6, newStart-0.6};
                         H = {x-0.6, starts1[previndex]-0.6};
                     }
-
-                    epb({preEnd,F}); epb({preStart,H});  epb({G,H}); epb({E,F});
+                    vpb(E); 
+                    vpb(F); 
+                    vpb(G); 
+                    vpb(H);
+                    epb({preEnd,F}); 
+                    epb({preStart,H});  
+                    epb({G,H}); 
+                    epb({E,F});
                     
                     if(ends2[i]>ends1[i]){
-                        epb({E,B}); epb({C,A});
+                        epb({E,B}); 
+                        epb({C,A});
                         preStart = G;
                         preEnd = D;
                     }
                     else{
-                        epb({D,B}); epb({G,A});
+                        epb({D,B}); 
+                        epb({G,A});
                         preStart = C;
                         preEnd = E;
                     }
@@ -711,15 +989,24 @@ vector<EDGE> getEdges(vector<int> selected, int len){
                         H = {x-0.6, starts1[previndex]-0.6};
                     }
 
-                    epb({preEnd,E}); epb({preStart,H});  epb({G,H}); epb({E,F});
+                    vpb(E); 
+                    vpb(F); 
+                    vpb(G); 
+                    vpb(H);
+                    epb({preEnd,E}); 
+                    epb({preStart,H});  
+                    epb({G,H}); 
+                    epb({E,F});
 
                     if(ends2[i]>ends1[i]){
-                        epb({F,B}); epb({C,A});
+                        epb({F,B}); 
+                        epb({C,A});
                         preStart = G;
                         preEnd = D;
                     }
                     else{
-                        epb({D,B}); epb({G,A});
+                        epb({D,B}); 
+                        epb({G,A});
                         preStart = C;
                         preEnd = F;
                     }
@@ -740,134 +1027,101 @@ vector<EDGE> getEdges(vector<int> selected, int len){
     epb({preEnd, lastE});
     epb({preStart, lastS});
 
+    vpb(lastE); vpb(lastS);
 
-    return edgeList;
+    return {edgeList , upEdges , downEdges , vertices};
 }
 
+void extend_edges(edgesStruct & es ){
 
-signed main(){
-    // ios::sync_with_stdio(0); cin.tie(0);
+    set<EDGE> anslist;
+    for (auto &&i : es.edgeList)
+    {
+        anslist.insert(i);
+    }
+    
+    map<POINT , vector<EDGE>> adj;
+    for (auto &&i : es.edgeList)
+    {
+        adj[i.first].push_back(i);
+        adj[i.second].push_back(i);
+    }
 
-    int testcases;
-    cout << "Enter the number of testcases : ";
-    cin >> testcases;
-
-    for(int tc = 0; tc < testcases; tc++){
-        cout<<endl<<"Case: "<<tc<<endl;
-        string filename = "input" + string(tc < 10 ? "0" : "" ) + (to_string(tc)) + ".txt";
-        getGrid(filename);
-
-        int totPos = allPositivesSum();
-        int bestWidth = -1;
-        int ans = 0;
-        int used;
-        vector<int> widths = {1, 40, 50};
-        cout<< "Normal grid: " <<endl;
-        for(int width : widths){
-            starts1.clear();
-            ends1.clear();
-            starts2.clear();
-            ends2.clear();
-            maxes1.clear();
-            maxes2.clear();
-            dp0.clear();
-            dp1.clear();
-            dp2.clear();
-            pair<int, int> temp = getOptimalValue(width);
-            cout << width << " : " << (temp.first * 100.00)/totPos << "\n";
-            if(temp.first > ans){
-                ans = temp.first;
-                used = temp.second;
-                bestWidth = width;
-            }
-        }
-        bool transpose = false;
-        getGridTranspose(filename);
-
-        cout<<endl<< "Transpose grid: "<<endl;
-        for(int width : widths){
-            starts1.clear();
-            ends1.clear();
-            starts2.clear();
-            ends2.clear();
-            maxes1.clear();
-            maxes2.clear();
-            dp0.clear();
-            dp1.clear();
-            dp2.clear();
-            pair<int, int> temp = getOptimalValue(width);
-            cout << width << " : " << (temp.first * 100.00)/totPos << "\n";
-            if(temp.first > ans){
-                ans = temp.first;
-                used = temp.second;
-                bestWidth = width;
-                transpose = true;
-            }
-        }
-
-        if(!transpose) getGrid(filename);
-
-        starts1.clear();
-        ends1.clear();
-        starts2.clear();
-        ends2.clear();
-        maxes1.clear();
-        maxes2.clear();
-        dp0.clear();
-        dp1.clear();
-        dp2.clear();
-        pair<int, int> temp = getOptimalValue(bestWidth);
-        ans = temp.first;
-        used = temp.second;
-
-        vector<int> selected = getSubarrays(bestWidth,used);
-
-        int veri=0;
-        for(int i = 0; i < selected.size(); ++i){
-            if(selected[i] == 1) veri += maxes1[i];
-            else if(selected[i] == 2){
-                veri += maxes1[i];
-                veri += maxes2[i];
-            }
-        };
-
-
-        cout << endl<< "Bestwidth: " << bestWidth<< ", Transpose = "<<transpose << "\n";
-        cout << ans << endl;
-        cout << veri << endl;
-
-        cout<<  (ans * 100.0) / totPos<<endl;
-        cout<<  (veri * 100.0) / totPos<<endl;
-
-        cout << totPos << endl;
-
-        vector<EDGE> edgeList = getEdges(selected, bestWidth);
-        int numEdges = edgeList.size();
-
-        cout << "Edges used : " << numEdges << "\n";
-
-        ofstream edgeOut("57_optimization_output0" + (to_string(tc)) + ".txt");
-        edgeOut << ans << "\n";
-        edgeOut << numEdges << ", " << numEdges << "\n";
-        for (int i = 0; i < numEdges; i++)
+    for (auto &&i : es.upEdges)
+    {
+        float cury = i.first.second;
+        float x1 = i.first.first;
+        float x2 = i.second.first;
+        if( x1 == 0 or x2 == 0 or floor(cury) == 0) continue;
+        int max_sum  = 0;
+        float maxy = -1;
+        for (int j = ceil(cury) ; j < 10002 ; j++)
         {
-            if(edgeList[i].first.first > 0){
-                edgeList[i].first.first++;
+            int this_sum = getSum(x1 , floor(cury) , x2 , j);
+            if(this_sum > max_sum){
+                max_sum = this_sum;
+                maxy = j;
             }
-            if(edgeList[i].second.first > 0){
-                edgeList[i].second.first++;
-            }
-            if(transpose){
-                swap(edgeList[i].first.first , edgeList[i].first.second);
-                swap(edgeList[i].second.first , edgeList[i].second.second);
-            }
-            edgeOut << "(" << edgeList[i].first.first<<", "<<edgeList[i].first.second<<"), ("<<
-            edgeList[i].second.first<<", "<<edgeList[i].second.second<<")\n";
+        }
 
+        if(maxy != -1){
+            for (auto &&j : adj[{x1, cury}])
+            {
+                anslist.erase(j);
+                POINT p2 = ( point_cmp(j.first , {x1, cury}) ? j.second : j.first);
+                if( !point_cmp(p2, {x2 , cury}) ) anslist.insert({{x1, maxy}, p2});
+            }
+            for (auto &&j : adj[{x2, cury}])
+            {
+                anslist.erase(j);
+                POINT p2 = ( point_cmp(j.first , {x2, cury}) ? j.second : j.first);
+                if( !point_cmp(p2, {x1 , cury}) ) anslist.insert({{x2, maxy}, p2});
+            }
+            anslist.insert({{x1, maxy}, {x2, maxy}});
+        }
+    }
+    
+    for (auto &&i : es.downEdges)
+    {
+        float cury = i.first.second;
+        float x1 = i.first.first;
+        float x2 = i.second.first;
+        if( x1 == 0 or x2 == 0 or floor(cury) == 0) continue;
+        int max_sum  = 0;
+        float maxy = -1;
+        for (int j = floor(cury) ; j > 0 ; j--)
+        {
+            int this_sum = getSum(x1 , floor(cury) , x2 , j);
+            if(this_sum > max_sum){
+                max_sum = this_sum;
+                maxy = j;
+            }
+        }
+
+        if(maxy != -1){
+            for (auto &&j : adj[{x1, cury}])
+            {
+                anslist.erase(j);
+                POINT p2 = ( point_cmp(j.first , {x1, cury}) ? j.second : j.first);
+                if( !point_cmp(p2, {x2 , cury}) ) anslist.insert({{x1, maxy}, p2});
+            }
+            for (auto &&j : adj[{x2, cury}])
+            {
+                anslist.erase(j);
+                POINT p2 = ( point_cmp(j.first , {x2, cury}) ? j.second : j.first);
+                if( !point_cmp(p2, {x1 , cury}) ) anslist.insert({{x2, maxy}, p2});
+            }
+            anslist.insert({{x1, maxy}, {x2, maxy}});
         }
     }
 
-    return 0;
+    vector<EDGE> final_ans;
+    for (auto &&i : anslist){
+        final_ans.push_back(i);
+    }
+    es.edgeList = final_ans;
 }
 
+
 // END OF CODE
+
